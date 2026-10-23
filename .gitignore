@@ -1,0 +1,29 @@
+# Rust build output
+/target/
+**/*.rs.bk
+*.pdb
+
+# Cargo.lock is intentionally committed: this is an application sample,
+# so pinned dependency versions keep builds reproducible for readers.
+
+# Environment and local config
+.env
+.env.*
+!.env.example
+
+# Temporal CLI dev server persistence (temporal server start-dev --db-filename ...)
+*.db
+*.db-shm
+*.db-wal
+
+# Editors and IDEs
+.vscode/
+.idea/
+*.iml
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
