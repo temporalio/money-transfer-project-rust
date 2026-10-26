@@ -36,11 +36,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
         reference_id: "12345".to_string(),
     };
 
+    let workflow_id =
+        std::env::var("WORKFLOW_ID").unwrap_or_else(|_| "money-transfer-demo".to_string());
     let handle = client
         .start_workflow(
             MoneyTransfer::run,
             data,
-            WorkflowStartOptions::new(MONEY_TRANSFER_TASK_QUEUE_NAME, "pay-invoice-701").build(),
+            WorkflowStartOptions::new(MONEY_TRANSFER_TASK_QUEUE_NAME, workflow_id).build(),
         )
         .await?;
 
