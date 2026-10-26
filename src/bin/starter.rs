@@ -3,6 +3,7 @@ use std::error::Error;
 
 use money_transfer::workflows::MoneyTransfer;
 use money_transfer::{MONEY_TRANSFER_TASK_QUEUE_NAME, PaymentDetails};
+use temporalio_client::envconfig::LoadClientConfigProfileOptions;
 use temporalio_client::{
     Client, ClientOptions, WorkflowGetResultOptions, WorkflowStartOptions,
     errors::WorkflowGetResultError,
@@ -10,9 +11,14 @@ use temporalio_client::{
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    // Connection settings come from temporal.toml or TEMPORAL_* environment
-    // variables, defaulting to localhost:7233 and the "default" namespace.
-    let (mut conn_opts, client_opts) = ClientOptions::load_from_config(Default::default())?;
+    // Connect to Temporal Cloud by loading the "cloud-setup" profile from the
+    // shared Temporal client config (temporal.toml), which supplies the Cloud
+    // address, namespace, TLS settings, and API key.
+    let (mut conn_opts, client_opts) = ClientOptions::load_from_config(
+        LoadClientConfigProfileOptions::builder()
+            .config_file_profile("cloud-setup".to_string())
+            .build(),
+    )?;
     // Record who started the workflow, as `{pid}@{hostname}` like the worker.
     if conn_opts.identity.is_empty() {
         conn_opts.identity = format!(

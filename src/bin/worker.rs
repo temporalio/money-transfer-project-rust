@@ -2,6 +2,7 @@
 use money_transfer::MONEY_TRANSFER_TASK_QUEUE_NAME;
 use money_transfer::activities::BankingActivities;
 use money_transfer::workflows::MoneyTransfer;
+use temporalio_client::envconfig::LoadClientConfigProfileOptions;
 use temporalio_client::{Client, ClientOptions};
 use temporalio_sdk::{Runtime, Worker, WorkerOptions};
 use tracing_subscriber::EnvFilter;
@@ -13,9 +14,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
 
     let runtime = Runtime::from_current_tokio(Default::default())?;
-    // Connection settings come from temporal.toml or TEMPORAL_* environment
-    // variables, defaulting to localhost:7233 and the "default" namespace.
-    let (conn_opts, client_opts) = ClientOptions::load_from_config(Default::default())?;
+    // Connect to Temporal Cloud by loading the "cloud-setup" profile from the
+    // shared Temporal client config (temporal.toml), which supplies the Cloud
+    // address, namespace, TLS settings, and API key.
+    let (conn_opts, client_opts) = ClientOptions::load_from_config(
+        LoadClientConfigProfileOptions::builder()
+            .config_file_profile("cloud-setup".to_string())
+            .build(),
+    )?;
     let client = Client::connect(conn_opts, client_opts).await?;
     let worker_options = WorkerOptions::new(MONEY_TRANSFER_TASK_QUEUE_NAME)
         .register_workflow::<MoneyTransfer>()?
