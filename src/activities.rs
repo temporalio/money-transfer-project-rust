@@ -50,16 +50,48 @@ impl BankingActivities {
     #[activity(name = "deposit")]
     pub async fn deposit(
         self: Arc<Self>,
-        _ctx: ActivityContext,
+        ctx: ActivityContext,
         data: PaymentDetails,
     ) -> Result<String, ActivityError> {
         let reference_id = format!("{}-deposit", data.reference_id);
+
+        // Demo-only failure injection, driven by the DEMO_FAILURE env var on the
+        // Worker. Unset/"off" leaves behavior unchanged.
+        match std::env::var("DEMO_FAILURE")
+            .unwrap_or_default()
+            .to_lowercase()
+            .as_str()
+        {
+            // Reuse the always-failing banking path for the first two attempts; the
+            // error is retryable, so Temporal retries and the activity succeeds on
+            // attempt 3 -> the Workflow recovers and completes.
+            "transient" if ctx.info().attempt < 3 => {
+                return self
+                    .bank
+                    .deposit_that_fails(&data.target_account, data.amount, &reference_id)
+                    .map_err(|err| to_activity_error(err, "Deposit failed"));
+            }
+            // Reuse the always-failing banking path, but make it non-retryable so the
+            // Workflow's refund compensation (saga rollback) runs instead of retrying.
+            "permanent" => {
+                let err = self
+                    .bank
+                    .deposit_that_fails(&data.target_account, data.amount, &reference_id)
+                    .unwrap_err();
+                error!("Deposit failed: {err}");
+                return Err(ActivityError::application(
+                    ApplicationFailure::builder(err)
+                        .type_name("DepositFailure".to_string())
+                        .non_retryable(true)
+                        .build(),
+                ));
+            }
+            _ => {}
+        }
+
         let confirmation = self
             .bank
             .deposit(&data.target_account, data.amount, &reference_id);
-        // let confirmation = self
-        //     .bank
-        //     .deposit_that_fails(&data.target_account, data.amount, &reference_id);
         confirmation.map_err(|err| to_activity_error(err, "Deposit failed"))
     }
 
